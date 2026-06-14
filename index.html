@@ -123,7 +123,7 @@
   const bgCtx=bgCanvas.getContext('2d'), ctx=drawCanvas.getContext('2d');
   const qBar=$('questionBar'), pointer=$('pointer'), status=$('connectionStatus');
   let mode='teacher', roomCode='', tool='pen', penColor='#111827', penSize=6, drawing=false, last=null;
-  let strokes=[], bgImageData='', gridOn=false, unsubRoom=null, uid='';
+  let strokes=[], bgImageData='', gridOn=false, unsubRoom=null, unsubPointer=null, uid='';
   const colors=['#111827','#ef4444','#2563eb','#16a34a','#f97316','#7c3aed','#ec4899','#ffffff'];
 
   function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
@@ -131,7 +131,10 @@
   function cleanRoom(v){ return (v||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,18); }
   function makeCode(){ return 'ROOM'+Math.random().toString(36).substring(2,6).toUpperCase(); }
   const DB_ROOT = 'rooms'; // Must match your Firebase Realtime Database rules.
-  function roomRef(path=''){ return ref(db, `${DB_ROOT}/${roomCode}${path?'/'+path:''}`); }
+  function roomRef(path=''){
+    if(!roomCode) throw new Error('Room code is empty. Join a room first.');
+    return ref(db, `${DB_ROOT}/${roomCode}${path?'/'+path:''}`);
+  }
   function setDebug(msg){ const el=$('roomDebug'); if(el) el.textContent=msg; }
 
   async function connectFirebase(){
@@ -189,6 +192,7 @@
       }
 
       if(unsubRoom) unsubRoom();
+      listenPointer();
       unsubRoom = onValue(roomRef(), snap=>{
         const data=snap.val()||{};
         strokes=data.strokes?Object.values(data.strokes):[];
@@ -225,7 +229,18 @@
   async function toggleGrid(){ if(!roomCode) return toast('Join a room first.'); await set(roomRef('gridOn'),!gridOn); }
 
   function pointerSync(p,show){ if(!roomCode) return; set(roomRef('pointer'), show?{x:p.x,y:p.y,at:Date.now()}:null); }
-  function listenPointer(){ onValue(roomRef('pointer'), snap=>{ const p=snap.val(); if(!p){ pointer.style.display='none'; return;} pointer.style.display='block'; pointer.style.left=(p.x*boardWrap.clientWidth)+'px'; pointer.style.top=(p.y*boardWrap.clientHeight)+'px'; setTimeout(()=>{pointer.style.display='none'},800); }); }
+  function listenPointer(){
+    if(!roomCode) return;
+    if(unsubPointer) unsubPointer();
+    unsubPointer = onValue(roomRef('pointer'), snap=>{
+      const p=snap.val();
+      if(!p){ pointer.style.display='none'; return;}
+      pointer.style.display='block';
+      pointer.style.left=(p.x*boardWrap.clientWidth)+'px';
+      pointer.style.top=(p.y*boardWrap.clientHeight)+'px';
+      setTimeout(()=>{pointer.style.display='none'},800);
+    });
+  }
 
   function startDraw(e){ if(mode==='viewer') return; e.preventDefault(); const p=pos(e); if(tool==='laser'){ pointer.style.display='block'; pointer.style.left=p.cx+'px'; pointer.style.top=p.cy+'px'; pointerSync(p,true); return; } drawing=true; last=p; }
   function moveDraw(e){ if(mode==='viewer') return; e.preventDefault(); const p=pos(e); if(tool==='laser'){ pointer.style.display='block'; pointer.style.left=p.cx+'px'; pointer.style.top=p.cy+'px'; pointerSync(p,true); return; } if(!drawing||!last) return; const s={x0:last.x,y0:last.y,x1:p.x,y1:p.y,color:penColor,size:penSize,tool:tool==='eraser'?'eraser':'pen',at:Date.now()}; addStroke(s); last=p; }
@@ -248,7 +263,7 @@
   $('sizeRange').oninput=e=>{penSize=Number(e.target.value);$('sizeLabel').textContent=penSize;};
   $('fullscreenBtn').onclick=()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); };
 
-  setupColors(); $('roomInput').value=localStorage.getItem('cwh_room')||makeCode(); connectFirebase(); resize(); listenPointer();
+  setupColors(); $('roomInput').value=localStorage.getItem('cwh_room')||makeCode(); connectFirebase(); resize();
 </script>
 </body>
 </html>
