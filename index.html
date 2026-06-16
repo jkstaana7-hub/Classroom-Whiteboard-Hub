@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Classroom Whiteboard Hub V3.1</title>
+  <title>Classroom Whiteboard Hub V3.1A</title>
   <style>
     :root{
       --blue:#2563eb; --dark:#0f172a; --light:#f8fafc; --card:#ffffff; --muted:#64748b;
@@ -30,7 +30,7 @@
     <header class="topbar">
       <div class="brand">
         <div class="logo">✎</div>
-        <div><h1>Classroom Whiteboard Hub V3.1</h1><div class="tag">Infinite Canvas Fix: iPad Teacher Board → Android Live Viewer</div></div>
+        <div><h1>Classroom Whiteboard Hub V3.1A</h1><div class="tag">Infinite Canvas Fix: iPad Teacher Board → Android Live Viewer</div></div>
       </div>
       <div class="modeBtns">
         <span class="status" id="connectionStatus">Connecting...</span>
@@ -151,6 +151,7 @@
   let mode='teacher', roomCode='', tool='pen', penColor='#111827', penSize=6, drawing=false, last=null;
   let strokes=[], bgImageData='', gridOn=false, uid='', followTeacher=false, teacherScrollTop=0, latestY=0;
   let unsubRoom=null, unsubPointer=null, unsubTeacherScroll=null, unsubViewers=null;
+  let viewerHeartbeat=null;
   let boardHeightPx=0, pageHeightPx=900, minPages=2, autoExpand=true;
   let scrollTimer=null, resizeTimer=null;
   const DB_ROOT = 'rooms';
@@ -164,6 +165,24 @@
   function cleanRoom(v){ return (v||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,18); }
   function makeCode(){ return 'ROOM'+Math.random().toString(36).substring(2,6).toUpperCase(); }
   function roomRef(path=''){ if(!roomCode) throw new Error('Room code is empty.'); return ref(db, `${DB_ROOT}/${roomCode}${path?'/'+path:''}`); }
+
+  function stopViewerHeartbeat(){ if(viewerHeartbeat){ clearInterval(viewerHeartbeat); viewerHeartbeat=null; } }
+  async function registerPresence(){
+    if(!roomCode || !uid) return;
+    stopViewerHeartbeat();
+    if(mode==='viewer'){
+      const viewerRef=roomRef('viewers/'+uid);
+      await update(viewerRef,{online:true,joinedAt:Date.now(),lastSeen:Date.now(),device:'viewer',mode:'viewer',version:VERSION});
+      try{ onDisconnect(viewerRef).remove(); }catch(e){}
+      viewerHeartbeat=setInterval(()=>{
+        if(roomCode && uid && mode==='viewer') update(roomRef('viewers/'+uid),{online:true,lastSeen:Date.now(),device:'viewer',mode:'viewer',version:VERSION}).catch(()=>{});
+      },8000);
+      await update(roomRef('meta'),{lastViewerJoin:Date.now()});
+    }else{
+      try{ await remove(roomRef('viewers/'+uid)); }catch(e){}
+      await update(roomRef('meta'),{teacherOnline:true,teacherUid:uid,lastTeacherJoin:Date.now(),version:VERSION});
+    }
+  }
   function viewportHeight(){ return Math.max(520, boardFrame.clientHeight || window.innerHeight-110); }
   function pages(){ return Math.max(1, Math.ceil(boardHeightPx / Math.max(1,pageHeightPx))); }
 
@@ -235,7 +254,17 @@
   }
   function redrawAll(){ drawBackground(); ctx.clearRect(0,0,drawCanvas.clientWidth,boardHeightPx); strokes.forEach(drawStroke); updateTeacherMarker(); updateLatestMarker(); updateMiniMap(); }
 
-  function setMode(m){ mode=m; app.classList.toggle('viewerMode',m==='viewer'); document.querySelectorAll('.teacherOnly').forEach(el=>el.style.display=m==='teacher'?'block':'none'); $('teacherModeBtn').classList.toggle('active',m==='teacher'); $('viewerModeBtn').classList.toggle('active',m==='viewer'); if(m==='viewer') setTool('scroll'); toast(m==='teacher'?'Teacher Mode':'Viewer Mode'); }
+  function setMode(m){
+    const oldMode = mode;
+    mode=m;
+    app.classList.toggle('viewerMode',m==='viewer');
+    document.querySelectorAll('.teacherOnly').forEach(el=>el.style.display=m==='teacher'?'block':'none');
+    $('teacherModeBtn').classList.toggle('active',m==='teacher');
+    $('viewerModeBtn').classList.toggle('active',m==='viewer');
+    if(m==='viewer') setTool('scroll');
+    if(roomCode && uid && oldMode!==m){ registerPresence(); }
+    toast(m==='teacher'?'Teacher Mode':'Viewer Mode');
+  }
   function setTool(t){ if(mode==='viewer') t='scroll'; tool=t; boardFrame.classList.toggle('scrollTool',t==='scroll'); ['penBtn','eraserBtn','laserBtn','scrollBtn'].forEach(id=>$(id)?.classList.remove('active')); if(t==='pen') $('penBtn').classList.add('active'); if(t==='eraser') $('eraserBtn').classList.add('active'); if(t==='laser') $('laserBtn').classList.add('active'); if(t==='scroll') $('scrollBtn').classList.add('active'); }
   function pos(e){ const r=drawCanvas.getBoundingClientRect(); const p=e.touches?e.touches[0]:e; return {x:(p.clientX-r.left)/r.width,yAbs:(p.clientY-r.top), cx:p.clientX-r.left, cy:p.clientY-r.top}; }
 
@@ -245,11 +274,11 @@
     $('currentRoom').textContent=roomCode; localStorage.setItem('cwh_room',roomCode); setStatus('Joining room...','syncing'); setDebug(`Joining ${DB_ROOT}/${roomCode} as ${mode}...`);
     try{
       if(mode==='teacher'){
-        await update(roomRef('meta'),{teacherOnline:true,teacherUid:uid,lastTeacherJoin:Date.now(),version:VERSION});
+        await registerPresence();
         const snap = await get(child(ref(db),`${DB_ROOT}/${roomCode}/settings/boardHeightPx`));
         if(!snap.exists()) await set(roomRef('settings/boardHeightPx'), boardHeightPx);
       }else{
-        const viewerRef=roomRef('viewers/'+uid); await set(viewerRef,{online:true,joinedAt:Date.now(),device:'viewer',version:VERSION}); try{onDisconnect(viewerRef).remove();}catch(e){} await update(roomRef('meta'),{lastViewerJoin:Date.now()});
+        await registerPresence();
       }
       attachRoomListeners();
       if(window.innerWidth<=850) $('toolsPanel').classList.remove('open');
@@ -272,7 +301,12 @@
       setStatus(mode==='teacher' ? `Teacher live: ${roomCode}` : `Viewer live: ${roomCode}`,'online');
       setDebug(`${mode==='teacher'?'Teacher':'Viewer'} connected. Infinite canvas: ${pages()} page(s).`);
     }, err=>{ console.error(err); setStatus('Firebase read failed',''); setDebug('Read failed: '+err.message); });
-    unsubViewers = onValue(roomRef('viewers'), snap=>{ const count=snap.exists()?Object.keys(snap.val()).length:0; $('viewerCount').textContent=`Viewers connected: ${count}`; });
+    unsubViewers = onValue(roomRef('viewers'), snap=>{
+      const viewers=snap.val()||{};
+      const now=Date.now();
+      const count=Object.values(viewers).filter(v=>v && v.online!==false && (!v.lastSeen || now-Number(v.lastSeen)<45000)).length;
+      $('viewerCount').textContent=`Viewers connected: ${count}`;
+    });
     unsubPointer = onValue(roomRef('pointer'), snap=>{ const p=snap.val(); if(!p){pointer.style.display='none';return;} pointer.style.display='block'; pointer.style.left=(p.x*boardContent.clientWidth)+'px'; pointer.style.top=(p.yAbs || 0)+'px'; setTimeout(()=>{pointer.style.display='none'},800); });
     unsubTeacherScroll = onValue(roomRef('teacherScroll'), snap=>{ const s=snap.val(); if(!s) return; teacherScrollTop=Number(s.top)||0; updateTeacherMarker(); updateMiniMap(); if(mode==='viewer' && followTeacher) boardViewport.scrollTop=teacherScrollTop; });
   }
