@@ -24,7 +24,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <header class="topbar"><div class="brand"><div class="logo">✎</div><div><h1>Classroom Whiteboard Hub V3.1E</h1><div class="tag">A4 / Original Whiteboard → Real Viewer Scroll Fix</div></div></div><div class="modeBtns"><span class="status" id="connectionStatus">Connecting...</span><button class="btn small mobileTools" id="togglePanelBtn">Tools / Room</button><button class="btn small primary" id="teacherModeBtn">Teacher Mode</button><button class="btn small green" id="viewerModeBtn">Viewer Mode</button><button class="btn small dark hideSmall" id="fullscreenBtn">Fullscreen</button></div></header>
+    <header class="topbar"><div class="brand"><div class="logo">✎</div><div><h1>Classroom Whiteboard Hub V3.1E Beta 2</h1><div class="tag">A4 / Original Whiteboard → 3x Faster Viewer Scroll</div></div></div><div class="modeBtns"><span class="status" id="connectionStatus">Connecting...</span><button class="btn small mobileTools" id="togglePanelBtn">Tools / Room</button><button class="btn small primary" id="teacherModeBtn">Teacher Mode</button><button class="btn small green" id="viewerModeBtn">Viewer Mode</button><button class="btn small dark hideSmall" id="fullscreenBtn">Fullscreen</button></div></header>
     <main class="main">
       <aside class="panel open" id="toolsPanel">
         <div class="section"><h2>Room Code</h2><div class="field"><label>Use the same code on all devices</label><input id="roomInput" placeholder="ROOM123" maxlength="18" /></div><div class="row"><button class="btn primary" id="joinBtn">Join Room</button><button class="btn" id="randomRoomBtn">Random</button></div><div class="roomBadge" id="currentRoom">NO ROOM</div><div class="viewerCount" id="viewerCount">Viewers connected: 0</div><div class="debugBox" id="roomDebug">Not joined yet.</div><p class="hint"><b>Teacher:</b> Teacher Mode + Join. <br><b>Students:</b> Viewer Mode + same room code.</p></div>
@@ -37,7 +37,7 @@
       <section class="boardFrame" id="boardFrame"><div class="boardToolbar"><button class="btn small" id="quickTopBtn">↑ Top</button><button class="btn small orange" id="quickTeacherBtn">Teacher Area</button><button class="btn small green" id="quickFollowBtn">Follow: OFF</button><button class="btn small" id="quickBottomBtn">↓ Bottom</button></div><div class="boardViewport" id="boardViewport"><div class="boardContent" id="boardContent"><canvas id="bgCanvas" class="canvasLayer bgLayer"></canvas><canvas id="drawCanvas" class="canvasLayer drawLayer"></canvas><div class="questionBar empty" id="questionBar"></div><div class="pointer" id="pointer"></div><div class="teacherMarker" id="teacherMarker"><span>Teacher is here ↓</span></div></div></div><div class="viewerScrollPad" id="viewerScrollPad" aria-label="Viewer scroll area"></div><div class="viewerNotice">VIEW ONLY — Drag to Scroll</div><div class="watermark">Teacher Kevin's Learning Arcade</div></section>
     </main>
   </div>
-  <div class="modal show" id="startModal"><div class="modalCard"><h2>Classroom Whiteboard Hub V3.1E</h2><p>A4 or Original whiteboard pages with manual sheet add, auto sheet add, live sync, viewer scrolling, and improved PDF export.</p><div class="bigChoice"><button class="btn primary" id="startTeacher">Teacher Mode</button><button class="btn green" id="startViewer">Student Viewer Mode</button></div></div></div><div class="toast" id="toast"></div>
+  <div class="modal show" id="startModal"><div class="modalCard"><h2>Classroom Whiteboard Hub V3.1E Beta 2</h2><p>A4 or Original whiteboard pages with manual sheet add, auto sheet add, live sync, 3x faster viewer scrolling, and improved PDF export.</p><div class="bigChoice"><button class="btn primary" id="startTeacher">Teacher Mode</button><button class="btn green" id="startViewer">Student Viewer Mode</button></div></div></div><div class="toast" id="toast"></div>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
@@ -67,6 +67,7 @@
   function updateTeacherMarker(){teacherMarker.style.top=Math.max(0,Math.min(totalH()-4,teacherY*pageH+70))+'px';teacherMarker.style.display=roomCode?'block':'none'} function syncTeacherScroll(){if(!roomCode||mode!=='teacher')return;clearTimeout(scrollTimer);const y=boardViewport.scrollTop/pageH;scrollTimer=setTimeout(()=>{set(roomRef('teacherScroll'),{top:boardViewport.scrollTop,y,at:Date.now()})},130)} boardViewport.addEventListener('scroll',syncTeacherScroll);
   
   let viewerTouchScrolling=false, viewerLastY=0, viewerLastX=0;
+  const VIEWER_SCROLL_SPEED = 3;
   function scrollLimit(){return Math.max(0, boardViewport.scrollHeight - boardViewport.clientHeight)}
   function viewerScrollStart(e){
     if(mode!=='viewer')return;
@@ -80,12 +81,12 @@
     const p=e.touches?e.touches[0]:e;
     const dy=viewerLastY-p.clientY, dx=viewerLastX-p.clientX;
     viewerLastY=p.clientY; viewerLastX=p.clientX;
-    boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+dy));
-    boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+dx);
+    boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+(dy*VIEWER_SCROLL_SPEED)));
+    boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+(dx*VIEWER_SCROLL_SPEED));
     e.preventDefault(); e.stopPropagation();
   }
   function viewerScrollEnd(){viewerTouchScrolling=false;if(viewerScrollPad)viewerScrollPad.style.cursor='grab';}
-  function viewerWheel(e){if(mode!=='viewer')return;boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+e.deltaY));boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+e.deltaX);e.preventDefault();}
+  function viewerWheel(e){if(mode!=='viewer')return;boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+(e.deltaY*VIEWER_SCROLL_SPEED)));boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+(e.deltaX*VIEWER_SCROLL_SPEED));e.preventDefault();}
   [viewerScrollPad, boardViewport].filter(Boolean).forEach(el=>{
     el.addEventListener('touchstart',viewerScrollStart,{passive:false});
     el.addEventListener('touchmove',viewerScrollMove,{passive:false});
