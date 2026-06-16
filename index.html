@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Classroom Whiteboard Hub V3.1E Beta 3</title>
+  <title>Classroom Whiteboard Hub V3.1E Beta 1</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root{--blue:#2563eb;--dark:#0f172a;--light:#f8fafc;--card:#fff;--muted:#64748b;--green:#16a34a;--red:#dc2626;--orange:#f97316;--line:#e2e8f0;--yellow:#facc15;}
@@ -24,7 +24,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <header class="topbar"><div class="brand"><div class="logo">✎</div><div><h1>Classroom Whiteboard Hub V3.1E Beta 3</h1><div class="tag">A4 / Original Whiteboard → 9x Ultra Fast Viewer Scroll</div></div></div><div class="modeBtns"><span class="status" id="connectionStatus">Connecting...</span><button class="btn small mobileTools" id="togglePanelBtn">Tools / Room</button><button class="btn small primary" id="teacherModeBtn">Teacher Mode</button><button class="btn small green" id="viewerModeBtn">Viewer Mode</button><button class="btn small dark hideSmall" id="fullscreenBtn">Fullscreen</button></div></header>
+    <header class="topbar"><div class="brand"><div class="logo">✎</div><div><h1>Classroom Whiteboard Hub V3.1E Beta 3A</h1><div class="tag">A4 / Original Whiteboard → 3x Faster Viewer Scroll</div></div></div><div class="modeBtns"><span class="status" id="connectionStatus">Connecting...</span><button class="btn small mobileTools" id="togglePanelBtn">Tools / Room</button><button class="btn small primary" id="teacherModeBtn">Teacher Mode</button><button class="btn small green" id="viewerModeBtn">Viewer Mode</button><button class="btn small dark hideSmall" id="fullscreenBtn">Fullscreen</button></div></header>
     <main class="main">
       <aside class="panel open" id="toolsPanel">
         <div class="section"><h2>Room Code</h2><div class="field"><label>Use the same code on all devices</label><input id="roomInput" placeholder="ROOM123" maxlength="18" /></div><div class="row"><button class="btn primary" id="joinBtn">Join Room</button><button class="btn" id="randomRoomBtn">Random</button></div><div class="roomBadge" id="currentRoom">NO ROOM</div><div class="viewerCount" id="viewerCount">Viewers connected: 0</div><div class="debugBox" id="roomDebug">Not joined yet.</div><p class="hint"><b>Teacher:</b> Teacher Mode + Join. <br><b>Students:</b> Viewer Mode + same room code.</p></div>
@@ -37,7 +37,7 @@
       <section class="boardFrame" id="boardFrame"><div class="boardToolbar"><button class="btn small" id="quickTopBtn">↑ Top</button><button class="btn small orange" id="quickTeacherBtn">Teacher Area</button><button class="btn small green" id="quickFollowBtn">Follow: OFF</button><button class="btn small" id="quickBottomBtn">↓ Bottom</button></div><div class="boardViewport" id="boardViewport"><div class="boardContent" id="boardContent"><canvas id="bgCanvas" class="canvasLayer bgLayer"></canvas><canvas id="drawCanvas" class="canvasLayer drawLayer"></canvas><div class="questionBar empty" id="questionBar"></div><div class="pointer" id="pointer"></div><div class="teacherMarker" id="teacherMarker"><span>Teacher is here ↓</span></div></div></div><div class="viewerScrollPad" id="viewerScrollPad" aria-label="Viewer scroll area"></div><div class="viewerNotice">VIEW ONLY — Drag to Scroll</div><div class="watermark">Teacher Kevin's Learning Arcade</div></section>
     </main>
   </div>
-  <div class="modal show" id="startModal"><div class="modalCard"><h2>Classroom Whiteboard Hub V3.1E Beta 3</h2><p>A4 or Original whiteboard pages with manual sheet add, auto sheet add, live sync, 3x faster viewer scrolling, and improved PDF export.</p><div class="bigChoice"><button class="btn primary" id="startTeacher">Teacher Mode</button><button class="btn green" id="startViewer">Student Viewer Mode</button></div></div></div><div class="toast" id="toast"></div>
+  <div class="modal show" id="startModal"><div class="modalCard"><h2>Classroom Whiteboard Hub V3.1E Beta 3A</h2><p>A4 or Original whiteboard pages with manual sheet add, auto sheet add, live sync, 3x faster viewer scrolling, and improved PDF export.</p><div class="bigChoice"><button class="btn primary" id="startTeacher">Teacher Mode</button><button class="btn green" id="startViewer">Student Viewer Mode</button></div></div></div><div class="toast" id="toast"></div>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
@@ -62,50 +62,30 @@
   function setTool(t){if(mode==='viewer')t='scroll';tool=t;boardFrame.classList.toggle('scrollTool',t==='scroll');['penBtn','eraserBtn','laserBtn','scrollBtn'].forEach(id=>$(id)?.classList.remove('active'));if(t==='pen')$('penBtn').classList.add('active');if(t==='eraser')$('eraserBtn').classList.add('active');if(t==='laser')$('laserBtn').classList.add('active');if(t==='scroll')$('scrollBtn').classList.add('active')}
   function pos(e){const r=drawCanvas.getBoundingClientRect();const p=e.touches?e.touches[0]:e;const x=(p.clientX-r.left)/r.width;const yCss=p.clientY-r.top;return{x:Math.max(0,Math.min(1,x)),y:Math.max(0,yCss/pageH),cx:p.clientX-r.left,cy:yCss}}
   async function registerViewer(){if(!roomCode||!uid||mode!=='viewer')return;const viewerRef=roomRef('viewers/'+uid);await set(viewerRef,{online:true,joinedAt:Date.now(),lastSeen:Date.now(),device:navigator.userAgent.slice(0,70)});try{onDisconnect(viewerRef).remove()}catch(e){} clearInterval(heartbeatTimer);heartbeatTimer=setInterval(()=>{if(roomCode&&mode==='viewer')update(viewerRef,{lastSeen:Date.now()}).catch(()=>{})},8000)}
-  async function joinRoom(){roomCode=cleanRoom($('roomInput').value);if(!roomCode)return toast('Enter a room code.');if(!uid){setStatus('Firebase auth not ready','');setDebug('Wait 2 seconds, then tap Join Room again.');return}$('currentRoom').textContent=roomCode;localStorage.setItem('cwh_room',roomCode);setStatus('Joining room...','syncing');setDebug(`Joining ${DB_ROOT}/${roomCode} as ${mode}...`);try{if(mode==='teacher'){await update(roomRef('meta'),{teacherOnline:true,teacherUid:uid,lastTeacherJoin:Date.now(),version:'V3.1E-Beta3-UltraFastViewerScroll'});await update(roomRef('settings'),{pageCount,autoExpand,boardMode})}else{await registerViewer();await update(roomRef('meta'),{lastViewerJoin:Date.now()})}attachRoomListeners();if(window.innerWidth<=850)$('toolsPanel').classList.remove('open');toast('Joined '+roomCode)}catch(e){console.error(e);setStatus('Join failed','');setDebug('Join failed: '+e.message);toast('Join failed.')}}
+  async function joinRoom(){roomCode=cleanRoom($('roomInput').value);if(!roomCode)return toast('Enter a room code.');if(!uid){setStatus('Firebase auth not ready','');setDebug('Wait 2 seconds, then tap Join Room again.');return}$('currentRoom').textContent=roomCode;localStorage.setItem('cwh_room',roomCode);setStatus('Joining room...','syncing');setDebug(`Joining ${DB_ROOT}/${roomCode} as ${mode}...`);try{if(mode==='teacher'){await update(roomRef('meta'),{teacherOnline:true,teacherUid:uid,lastTeacherJoin:Date.now(),version:'V3.1C-Beta1-Export-Layout-ViewerScroll'});await update(roomRef('settings'),{pageCount,autoExpand,boardMode})}else{await registerViewer();await update(roomRef('meta'),{lastViewerJoin:Date.now()})}attachRoomListeners();if(window.innerWidth<=850)$('toolsPanel').classList.remove('open');toast('Joined '+roomCode)}catch(e){console.error(e);setStatus('Join failed','');setDebug('Join failed: '+e.message);toast('Join failed.')}}
   function attachRoomListeners(){if(unsubRoom)unsubRoom();if(unsubPointer)unsubPointer();if(unsubTeacherScroll)unsubTeacherScroll();if(unsubViewers)unsubViewers();unsubRoom=onValue(roomRef(),snap=>{const data=snap.val()||{};const nextMode=data.settings?.boardMode||boardMode;if(nextMode!==boardMode){boardMode=nextMode==='original'?'original':'a4';$('boardModeSelect').value=boardMode;layoutA4();}const pc=Number(data.settings?.pageCount||pageCount);if(pc!==pageCount)setPageCount(pc,false);autoExpand=data.settings?.autoExpand===undefined?autoExpand:!!data.settings.autoExpand;$('autoExpandBtn').textContent='Auto Add: '+(autoExpand?'ON':'OFF');strokes=data.strokes?Object.values(data.strokes):[];bgImageData=data.background?.data||'';gridOn=!!data.gridOn;const text=data.question?.text||'';qBar.textContent=text;qBar.classList.toggle('empty',!text);redrawAll();setStatus(mode==='teacher'?`Teacher live: ${roomCode}`:`Viewer live: ${roomCode}`,'online');setDebug(`${mode==='teacher'?'Teacher':'Viewer'} connected. ${boardMode==='a4'?'A4 pages':'Original sheets'}: ${pageCount}. Auto Add: ${autoExpand?'ON':'OFF'}.`)},err=>{console.error(err);setStatus('Firebase read failed','');setDebug('Read failed: '+err.message)});unsubViewers=onValue(roomRef('viewers'),snap=>{const val=snap.val()||{};const now=Date.now();const count=Object.values(val).filter(v=>v&&v.online!==false&&(!v.lastSeen||now-v.lastSeen<45000)).length;$('viewerCount').textContent=`Viewers connected: ${count}`});unsubPointer=onValue(roomRef('pointer'),snap=>{const p=snap.val();if(!p){pointer.style.display='none';return}pointer.style.display='block';pointer.style.left=(p.x*pageW)+'px';pointer.style.top=(p.y*pageH)+'px';setTimeout(()=>{pointer.style.display='none'},800)});unsubTeacherScroll=onValue(roomRef('teacherScroll'),snap=>{const s=snap.val();if(!s)return;teacherY=Number(s.y)||0;teacherScrollTop=teacherY*pageH;updateTeacherMarker();if(mode==='viewer'&&followTeacher)boardViewport.scrollTop=Math.max(0,teacherScrollTop-80)})}
   function updateTeacherMarker(){teacherMarker.style.top=Math.max(0,Math.min(totalH()-4,teacherY*pageH+70))+'px';teacherMarker.style.display=roomCode?'block':'none'} function syncTeacherScroll(){if(!roomCode||mode!=='teacher')return;clearTimeout(scrollTimer);const y=boardViewport.scrollTop/pageH;scrollTimer=setTimeout(()=>{set(roomRef('teacherScroll'),{top:boardViewport.scrollTop,y,at:Date.now()})},130)} boardViewport.addEventListener('scroll',syncTeacherScroll);
   
   let viewerTouchScrolling=false, viewerLastY=0, viewerLastX=0;
-  const VIEWER_SCROLL_SPEED = 9;
-  let viewerVelocityY=0, viewerVelocityX=0, viewerMomentumFrame=null, viewerLastMoveTime=0;
+  const VIEWER_SCROLL_SPEED = 6;
   function scrollLimit(){return Math.max(0, boardViewport.scrollHeight - boardViewport.clientHeight)}
-  function stopViewerMomentum(){ if(viewerMomentumFrame){ cancelAnimationFrame(viewerMomentumFrame); viewerMomentumFrame=null; } }
-  function clampViewerScroll(){ boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop)); if(boardViewport.scrollLeft<0)boardViewport.scrollLeft=0; }
-  function startViewerMomentum(){
-    stopViewerMomentum();
-    const step=()=>{
-      if(mode!=='viewer'||viewerTouchScrolling)return;
-      boardViewport.scrollTop+=viewerVelocityY;
-      boardViewport.scrollLeft+=viewerVelocityX;
-      clampViewerScroll();
-      viewerVelocityY*=0.88; viewerVelocityX*=0.88;
-      if(Math.abs(viewerVelocityY)>0.35||Math.abs(viewerVelocityX)>0.35)viewerMomentumFrame=requestAnimationFrame(step);
-      else viewerMomentumFrame=null;
-    };
-    if(Math.abs(viewerVelocityY)>0.35||Math.abs(viewerVelocityX)>0.35)viewerMomentumFrame=requestAnimationFrame(step);
-  }
   function viewerScrollStart(e){
     if(mode!=='viewer')return;
-    stopViewerMomentum();
     const p=e.touches?e.touches[0]:e;
-    viewerTouchScrolling=true; viewerLastY=p.clientY; viewerLastX=p.clientX; viewerLastMoveTime=Date.now(); viewerVelocityY=0; viewerVelocityX=0;
+    viewerTouchScrolling=true; viewerLastY=p.clientY; viewerLastX=p.clientX;
     if(viewerScrollPad) viewerScrollPad.style.cursor='grabbing';
     e.preventDefault(); e.stopPropagation();
   }
   function viewerScrollMove(e){
     if(mode!=='viewer'||!viewerTouchScrolling)return;
     const p=e.touches?e.touches[0]:e;
-    const now=Date.now();
     const dy=viewerLastY-p.clientY, dx=viewerLastX-p.clientX;
     viewerLastY=p.clientY; viewerLastX=p.clientX;
-    const moveY=dy*VIEWER_SCROLL_SPEED, moveX=dx*VIEWER_SCROLL_SPEED;
-    boardViewport.scrollTop+=moveY; boardViewport.scrollLeft+=moveX; clampViewerScroll();
-    const dt=Math.max(12,now-viewerLastMoveTime); viewerLastMoveTime=now;
-    viewerVelocityY=(moveY/dt)*16; viewerVelocityX=(moveX/dt)*16;
+    boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+(dy*VIEWER_SCROLL_SPEED)));
+    boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+(dx*VIEWER_SCROLL_SPEED));
     e.preventDefault(); e.stopPropagation();
   }
-  function viewerScrollEnd(){viewerTouchScrolling=false;if(viewerScrollPad)viewerScrollPad.style.cursor='grab';startViewerMomentum();}
+  function viewerScrollEnd(){viewerTouchScrolling=false;if(viewerScrollPad)viewerScrollPad.style.cursor='grab';}
   function viewerWheel(e){if(mode!=='viewer')return;boardViewport.scrollTop=Math.max(0,Math.min(scrollLimit(),boardViewport.scrollTop+(e.deltaY*VIEWER_SCROLL_SPEED)));boardViewport.scrollLeft=Math.max(0,boardViewport.scrollLeft+(e.deltaX*VIEWER_SCROLL_SPEED));e.preventDefault();}
   [viewerScrollPad, boardViewport].filter(Boolean).forEach(el=>{
     el.addEventListener('touchstart',viewerScrollStart,{passive:false});
@@ -131,7 +111,7 @@
       if(gridOn){cctx.save();cctx.scale(scale,scale);drawGridOn(cctx,pageW,pageH);cctx.restore()}
       strokes.filter(s=>Math.max(s.y0,s.y1)>=i&&Math.min(s.y0,s.y1)<=i+1).forEach(s=>{cctx.save();cctx.scale(scale,scale);drawStroke(s,cctx,1,i,pageW,pageH);cctx.restore()});
       const qText=qBar.textContent||'';if(qText&&i===0){cctx.fillStyle='rgba(255,255,255,.96)';cctx.fillRect(60,50,pxW-120,110);cctx.strokeStyle='#dbeafe';cctx.lineWidth=4;cctx.strokeRect(60,50,pxW-120,110);cctx.fillStyle='#0f172a';cctx.font='bold 30px Arial';cctx.textAlign='center';wrapText(cctx,qText,pxW/2,95,pxW-180,36,2)}
-      cctx.fillStyle='#64748b';cctx.font='bold 24px Arial';cctx.textAlign='right';cctx.fillText((boardMode==='a4'?'A4 Page ':'Whiteboard Sheet ')+(i+1),pxW-45,pxH-35);pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297)}pdf.save(`whiteboard-${roomCode||'board'}-${boardMode}-v31E-beta3.pdf`);toast('PDF exported with image + question.')}catch(e){console.error(e);toast('PDF export failed on this device.')}}
+      cctx.fillStyle='#64748b';cctx.font='bold 24px Arial';cctx.textAlign='right';cctx.fillText((boardMode==='a4'?'A4 Page ':'Whiteboard Sheet ')+(i+1),pxW-45,pxH-35);pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297)}pdf.save(`whiteboard-${roomCode||'board'}-${boardMode}-v31C.pdf`);toast('PDF exported with image + question.')}catch(e){console.error(e);toast('PDF export failed on this device.')}}
   function jumpTop(){boardViewport.scrollTo({top:0,behavior:'smooth'})} function jumpBottom(){boardViewport.scrollTo({top:totalH(),behavior:'smooth'})} function jumpTeacher(){boardViewport.scrollTo({top:Math.max(0,teacherScrollTop-80),behavior:'smooth'})} function toggleFollow(){followTeacher=!followTeacher;$('followBtn').textContent='Follow Teacher: '+(followTeacher?'ON':'OFF');$('quickFollowBtn').textContent='Follow: '+(followTeacher?'ON':'OFF');toast('Follow Teacher '+(followTeacher?'ON':'OFF'));if(followTeacher)jumpTeacher()}
   $('startTeacher').onclick=()=>{setMode('teacher');$('startModal').classList.remove('show');layoutA4()};$('startViewer').onclick=()=>{setMode('viewer');$('startModal').classList.remove('show');layoutA4()};$('teacherModeBtn').onclick=()=>setMode('teacher');$('viewerModeBtn').onclick=()=>setMode('viewer');$('togglePanelBtn').onclick=()=>$('toolsPanel').classList.toggle('open');$('joinBtn').onclick=joinRoom;$('randomRoomBtn').onclick=()=>{$('roomInput').value=makeCode()};$('sendQuestionBtn').onclick=sendQuestion;$('hideQuestionBtn').onclick=hideQuestion;$('penBtn').onclick=()=>setTool('pen');$('eraserBtn').onclick=()=>setTool('eraser');$('laserBtn').onclick=()=>setTool('laser');$('scrollBtn').onclick=()=>setTool('scroll');$('gridBtn').onclick=toggleGrid;$('addSheetBtn').onclick=()=>addSheets(1);$('addFiveBtn').onclick=()=>addSheets(5);$('autoExpandBtn').onclick=toggleAuto;$('boardModeSelect').onchange=e=>setBoardMode(e.target.value,true);$('clearBtn').onclick=clearInk;$('clearAllBtn').onclick=clearAll;$('undoBtn').onclick=undo;$('exportPdfBtn').onclick=exportPdf;$('bgBtn').onclick=()=>$('bgFile').click();$('bgFile').onchange=e=>setBackgroundFromFile(e.target.files[0]);$('sizeRange').oninput=e=>{penSize=Number(e.target.value);$('sizeLabel').textContent=penSize};$('topBtn').onclick=jumpTop;$('quickTopBtn').onclick=jumpTop;$('bottomBtn').onclick=jumpBottom;$('quickBottomBtn').onclick=jumpBottom;$('teacherHereBtn').onclick=jumpTeacher;$('quickTeacherBtn').onclick=jumpTeacher;$('followBtn').onclick=toggleFollow;$('quickFollowBtn').onclick=toggleFollow;$('fullscreenBtn').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
   setupColors();$('roomInput').value=localStorage.getItem('cwh_room')||makeCode();connectFirebase();$('boardModeSelect').value=boardMode;layoutA4();
